@@ -1,0 +1,230 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOFTPLAY — Твой мир кино</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#090d16;color:#fff;font-family:Arial,sans-serif}
+header{padding:20px 6%;display:flex;align-items:center;justify-content:space-between;background:#101725;position:sticky;top:0;z-index:10}
+.logo{font-size:27px;font-weight:900;letter-spacing:1px}
+.logo span{color:#38bdf8}
+nav{display:flex;gap:20px}
+nav a{color:#bdc7d6;text-decoration:none;font-size:14px}
+nav a:hover{color:#38bdf8}
+.hero{padding:65px 6%;background:linear-gradient(90deg,#101d32,#101d32dd),url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1200') center/cover}
+.hero h1{font-size:42px;margin-bottom:15px}
+.hero p{color:#bdc7d6;max-width:500px;line-height:1.6}
+.search{margin-top:25px;display:flex;max-width:550px;gap:8px}
+.search input{flex:1;min-width:0;padding:15px;border:1px solid #28384e;border-radius:9px;background:#182336;color:white;outline:none}
+button{cursor:pointer;border:0;border-radius:9px;padding:13px 20px;background:#38bdf8;color:#07111e;font-weight:bold}
+button:hover{background:#7dd3fc}
+main{padding:35px 6%}
+.section-title{font-size:24px;margin-bottom:20px}
+.categories{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:25px}
+.categories button{background:#172337;color:#d5e1ef}
+.categories button.active{background:#38bdf8;color:#07111e}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:20px}
+.movie{background:#111b2a;border-radius:12px;overflow:hidden;transition:.2s;cursor:pointer}
+.movie:hover{transform:translateY(-5px)}
+.movie img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#202b3c}
+.movie-info{padding:12px}
+.movie h3{font-size:14px;line-height:1.4;margin-bottom:7px}
+.movie p{font-size:12px;color:#93a4ba}
+.rating{color:#facc15!important;margin-top:7px}
+.status{text-align:center;color:#9aabc0;padding:35px}
+footer{text-align:center;padding:30px;color:#687b94;border-top:1px solid #1d293a;margin-top:30px;font-size:13px}
+.modal{display:none;position:fixed;inset:0;background:#000c;z-index:20;overflow:auto;padding:25px}
+.modal-content{max-width:650px;margin:40px auto;background:#111b2a;border-radius:15px;padding:25px}
+.modal-content img{width:150px;float:left;margin:0 20px 15px 0;border-radius:9px}
+.modal-content h2{margin-bottom:12px}
+.modal-content p{color:#bdc7d6;line-height:1.6;margin-bottom:15px}
+.close{float:right;background:#26364c;color:white}
+@media(max-width:600px){
+nav{gap:10px}nav a{font-size:12px}
+.hero h1{font-size:32px}
+.hero{padding:45px 5%}
+main{padding:28px 4%}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">SOFT<span>PLAY</span></div>
+<nav>
+<a href="#" onclick="loadMovies('movie');return false">Фильмы</a>
+<a href="#" onclick="loadMovies('tv');return false">Сериалы</a>
+</nav>
+</header>
+
+<section class="hero">
+<h1>Твой мир кино</h1>
+<p>Открывай новые истории, находи любимые фильмы и исследуй огромную коллекцию кинематографа.</p>
+<div class="search">
+<input id="search" placeholder="Название фильма или сериала...">
+<button onclick="searchMovies()">Найти</button>
+</div>
+</section>
+
+<main>
+<h2 class="section-title" id="heading">Популярное сегодня</h2>
+<div class="categories">
+<button class="active" onclick="loadMovies('movie',this)">Фильмы</button>
+<button onclick="loadMovies('tv',this)">Сериалы</button>
+<button onclick="loadTrending(this)">Тренды</button>
+</div>
+<div id="movies" class="grid"></div>
+<div id="status" class="status"></div>
+</main>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="modal-content">
+<button class="close" onclick="closeModal()">Закрыть</button>
+<div id="details"></div>
+</div>
+</div>
+
+<footer>
+SOFTPLAY © 2026 · YOUR CINEMA. YOUR WORLD.
+<br><br>
+Информация и постеры предоставляются через TMDB.
+</footer>
+
+<script>
+const API_KEY = "";
+const BASE = "https://api.themoviedb.org/3";
+const IMG = "https://image.tmdb.org/t/p/w500";
+
+let currentType = "movie";
+
+async function request(path) {
+ if (!API_KEY) {
+  document.getElementById("status").textContent =
+   "Для загрузки каталога потребуется бесплатный API-ключ TMDB.";
+  return null;
+ }
+ try {
+  const response = await fetch(BASE + path +
+   (path.includes("?") ? "&" : "?") +
+   "api_key=" + API_KEY + "&language=ru-RU");
+  if (!response.ok) throw new Error("Ошибка загрузки");
+  return await response.json();
+ } catch(e) {
+  document.getElementById("status").textContent =
+   "Не удалось загрузить каталог. Проверь API-ключ и соединение.";
+  return null;
+ }
+}
+
+function renderMovies(items) {
+ const container = document.getElementById("movies");
+ const status = document.getElementById("status");
+ container.innerHTML = "";
+ status.textContent = "";
+
+ if (!items || !items.length) {
+  status.textContent = "Фильмы не найдены.";
+  return;
+ }
+
+ items.forEach(movie => {
+  const title = movie.title || movie.name || "Без названия";
+  const year = (movie.release_date || movie.first_air_date || "").slice(0,4);
+  const card = document.createElement("div");
+  card.className = "movie";
+
+  const img = document.createElement("img");
+  img.src = movie.poster_path ? IMG + movie.poster_path : "";
+  img.alt = title;
+  img.loading = "lazy";
+
+  const info = document.createElement("div");
+  info.className = "movie-info";
+
+  const h = document.createElement("h3");
+  h.textContent = title;
+
+  const p = document.createElement("p");
+  p.textContent = year || "Год неизвестен";
+
+  const rating = document.createElement("p");
+  rating.className = "rating";
+  rating.textContent = "★ " + (movie.vote_average || "—");
+
+  info.append(h,p,rating);
+  card.append(img,info);
+  card.onclick = () => showDetails(movie.id);
+  container.appendChild(card);
+ });
+}
+
+async function loadMovies(type, button) {
+ currentType = type;
+ document.getElementById("heading").textContent =
+  type === "movie" ? "Популярные фильмы" : "Популярные сериалы";
+ document.getElementById("status").textContent = "Загружаем каталог...";
+ document.querySelectorAll(".categories button").forEach(b=>b.classList.remove("active"));
+ if(button) button.classList.add("active");
+
+ const data = await request("/" + type + "/popular?page=1");
+ if(data) renderMovies(data.results);
+}
+
+async function loadTrending(button) {
+ currentType = "movie";
+ document.getElementById("heading").textContent = "Тренды недели";
+ document.getElementById("status").textContent = "Загружаем...";
+ document.querySelectorAll(".categories button").forEach(b=>b.classList.remove("active"));
+ if(button) button.classList.add("active");
+ const data = await request("/trending/all/week?page=1");
+ if(data) renderMovies(data.results);
+}
+
+async function searchMovies() {
+ const query = document.getElementById("search").value.trim();
+ if(!query) return;
+ document.getElementById("heading").textContent = "Результаты поиска";
+ document.getElementById("status").textContent = "Ищем...";
+ const data = await request("/search/multi?query="+encodeURIComponent(query)+"&page=1");
+ if(data) renderMovies(data.results.filter(x=>x.media_type!=="person"));
+}
+
+async function showDetails(id) {
+ const data = await request("/"+currentType+"/"+id);
+ if(!data) return;
+ const title = data.title || data.name;
+ const poster = data.poster_path ? IMG+data.poster_path : "";
+ document.getElementById("details").innerHTML = "";
+ const img = document.createElement("img");
+ img.src = poster;
+ img.alt = title;
+ const h = document.createElement("h2");
+ h.textContent = title;
+ const p = document.createElement("p");
+ p.textContent = data.overview || "Описание отсутствует.";
+ const year = document.createElement("p");
+ year.textContent = "Год: "+(data.release_date || data.first_air_date || "—");
+ const rating = document.createElement("p");
+ rating.textContent = "Рейтинг: ★ "+(data.vote_average || "—");
+ const genres = document.createElement("p");
+ genres.textContent = "Жанры: "+(data.genres || []).map(g=>g.name).join(", ");
+ document.getElementById("details").append(img,h,p,year,rating,genres);
+ document.getElementById("modal").style.display="block";
+}
+
+function closeModal() {
+ document.getElementById("modal").style.display="none";
+}
+
+document.getElementById("search").addEventListener("keydown",e=>{
+ if(e.key==="Enter") searchMovies();
+});
+
+loadMovies("movie");
+</script>
+</body>
+</html>
