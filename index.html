@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOFTFILM — Твой мир кино</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#090d16;color:white;font-family:Arial,sans-serif}
+header{padding:20px 6%;display:flex;justify-content:space-between;align-items:center;background:#101827;flex-wrap:wrap;gap:15px}
+.logo{font-size:28px;font-weight:900}
+.logo span{color:#38bdf8}
+nav{display:flex;gap:15px}
+button{cursor:pointer}
+nav button{background:none;border:0;color:white;font-size:15px}
+.hero{padding:65px 6%;background:linear-gradient(90deg,#101827,#102d48)}
+.hero h1{font-size:38px;margin-bottom:15px}
+.hero p{color:#bdc7d6;line-height:1.6}
+.search{margin:25px 6%;display:flex;gap:10px}
+input{flex:1;min-width:0;padding:15px;border-radius:10px;border:1px solid #26364b;background:#151f30;color:white;font-size:16px}
+.search button,.download{padding:14px 20px;border:0;border-radius:10px;background:#0284c7;color:white;font-weight:bold}
+.section{padding:20px 6%}
+.section h2{margin-bottom:20px}
+.tabs{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+.tabs button{padding:10px 18px;border:1px solid #26364b;background:#151f30;color:white;border-radius:20px}
+.tabs button.active{background:#0284c7}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:20px}
+.movie{background:#121c2b;border-radius:12px;overflow:hidden;cursor:pointer}
+.movie img{width:100%;aspect-ratio:2/3;object-fit:cover;background:#1e293b}
+.movie-info{padding:12px}
+.movie h3{font-size:15px;line-height:1.4;margin-bottom:8px}
+.rating{color:#facc15;font-size:13px}
+.year{color:#9caec2;font-size:12px;margin-top:6px}
+#message{color:#bdc7d6;margin:20px 0}
+footer{text-align:center;padding:35px;color:#718096;margin-top:50px;border-top:1px solid #26364b}
+.modal{display:none;position:fixed;inset:0;background:#000d;z-index:5;overflow:auto;padding:20px}
+.modal-content{max-width:600px;margin:30px auto;background:#121c2b;border-radius:15px;padding:22px;line-height:1.6}
+.modal-content img{width:140px;float:left;margin:0 18px 12px 0;border-radius:10px}
+.modal-content p{color:#bdc7d6;margin:12px 0}
+.close{float:right;background:none;border:0;color:white;font-size:28px}
+.download{display:inline-block;text-decoration:none;margin-top:12px}
+@media(max-width:500px){.hero h1{font-size:29px}.search{flex-direction:column}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">SOFT<span>FILM</span></div>
+<nav>
+<button onclick="loadMovies('movie')">Фильмы</button>
+<button onclick="loadMovies('tv')">Сериалы</button>
+</nav>
+</header>
+
+<section class="hero">
+<h1>Твой мир кино 🎬</h1>
+<p>Открывай новые фильмы, находи любимые сериалы и выбирай, что посмотреть сегодня.</p>
+</section>
+
+<div class="search">
+<input id="searchInput" placeholder="Найти фильм или сериал..." onkeydown="if(event.key==='Enter')searchMovies()">
+<button onclick="searchMovies()">Поиск</button>
+</div>
+
+<section class="section">
+<h2 id="sectionTitle">Популярное сейчас</h2>
+<div class="tabs">
+<button class="active" onclick="loadTrending(this)">В тренде</button>
+<button onclick="loadMovies('movie',this)">Фильмы</button>
+<button onclick="loadMovies('tv',this)">Сериалы</button>
+</div>
+<div id="catalog" class="grid"></div>
+<p id="message">Загружаем каталог...</p>
+</section>
+
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()">
+<div class="modal-content">
+<button class="close" onclick="closeModal()">×</button>
+<div id="details"></div>
+</div>
+</div>
+
+<footer>
+<div class="logo">SOFT<span>FILM</span></div>
+<p style="margin-top:12px">SOFTFILM © 2026</p>
+<p style="font-size:12px;margin-top:8px">Информация о фильмах предоставляется TMDB.</p>
+</footer>
+
+<script>
+const API_KEY = "";
+const API = "https://api.themoviedb.org/3";
+const IMG = "https://image.tmdb.org/t/p/w500";
+
+async function request(path){
+const response = await fetch(API+path+(path.includes("?")?"&":"?")+"api_key="+API_KEY+"&language=ru-RU");
+if(!response.ok) throw new Error("Ошибка загрузки каталога");
+return response.json();
+}
+
+function showMessage(text){
+document.getElementById("message").textContent=text;
+}
+
+function renderMovies(items){
+const catalog=document.getElementById("catalog");
+catalog.innerHTML="";
+if(!items || !items.length){
+showMessage("Ничего не найдено.");
+return;
+}
+showMessage("");
+items.forEach(movie=>{
+const title=movie.title||movie.name||"Без названия";
+const poster=movie.poster_path?IMG+movie.poster_path:"";
+const card=document.createElement("div");
+card.className="movie";
+card.innerHTML=`
+<img src="${poster}" alt="${title}" onerror="this.style.visibility='hidden'">
+<div class="movie-info">
+<h3>${title}</h3>
+<div class="rating">⭐ ${movie.vote_average?movie.vote_average.toFixed(1):"—"}</div>
+<div class="year">${(movie.release_date||movie.first_air_date||"").slice(0,4)}</div>
+</div>`;
+card.onclick=()=>showDetails(movie);
+catalog.appendChild(card);
+});
+}
+
+async function loadTrending(button){
+document.getElementById("sectionTitle").textContent="Популярное сейчас";
+setActive(button);
+showMessage("Загружаем...");
+try{
+const data=await request("/trending/all/week");
+renderMovies(data.results);
+}catch(e){showMessage("Не удалось загрузить каталог. Проверь API-ключ.");}
+}
+
+async function loadMovies(type,button){
+document.getElementById("sectionTitle").textContent=type==="movie"?"Популярные фильмы":"Популярные сериалы";
+setActive(button);
+showMessage("Загружаем...");
+try{
+const data=await request("/"+type+"/popular");
+renderMovies(data.results);
+}catch(e){showMessage("Не удалось загрузить каталог. Проверь API-ключ.");}
+}
+
+function setActive(button){
+document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+if(button)button.classList.add("active");
+}
+
+async function searchMovies(){
+const query=document.getElementById("searchInput").value.trim();
+if(!query)return;
+document.getElementById("sectionTitle").textContent="Результаты поиска";
+showMessage("Ищем...");
+try{
+const data=await request("/search/multi?query="+encodeURIComponent(query));
+renderMovies(data.results.filter(x=>x.media_type!=="person"));
+}catch(e){showMessage("Ошибка поиска. Проверь API-ключ.");}
+}
+
+async function showDetails(movie){
+const id=movie.id;
+const type=movie.media_type||"movie";
+const title=movie.title||movie.name||"Без названия";
+const poster=movie.poster_path?IMG+movie.poster_path:"";
+document.getElementById("details").innerHTML=`
+<img src="${poster}" alt="">
+<h2>${title}</h2>
+<p>⭐ ${movie.vote_average?movie.vote_average.toFixed(1):"—"}</p>
+<p>${movie.overview||"Описание пока отсутствует."}</p>
+<p>Год: ${(movie.release_date||movie.first_air_date||"Неизвестен").slice(0,4)}</p>
+<p>SOFTFILM показывает информацию о фильмах. Для просмотра используйте легальные сервисы.</p>
+<a class="download" href="https://www.themoviedb.org/${type}/${id}" target="_blank" rel="noopener">Подробнее о фильме</a>`;
+document.getElementById("modal").style.display="block";
+}
+
+function closeModal(){
+document.getElementById("modal").style.display="none";
+}
+
+if(API_KEY){
+loadTrending(document.querySelector(".tabs button"));
+}else{
+showMessage("Для загрузки каталога добавь бесплатный API-ключ TMDB в код.");
+}
+</script>
+</body>
+</html>
